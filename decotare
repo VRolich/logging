@@ -1,0 +1,83 @@
+"""Implement decorator which logs all calls to decorated object in JSON/YAML
+format:
+- Must have the next signature `log_calls(format='JSON')`.
+- `format` argument should accept 'JSON' and 'YAML' value.
+- On the first call implemented decorator should create `app.log` file with
+appropriate extension in current working directory.
+- If log file already exists decorator should append new records without
+rewriting the file.
+- Structure of the generated log file is shown in `app.log.json` file.
+YAML files should have the same structure.
+  - `timestamp` field must contain ISO8601 fromatted datetime.
+  - `callable` field must contain   (the same you could use in import statement).
+  - `args`, `kwargs` and `result` fields contain paths to pickle files with
+  corresponding serialized objects.
+- Names of the pickle files must be valid unique UUIDs.
+
+For demonstration implement simple python app with python package containing
+multiple modules and make use of the decorator in all of these modules."""
+
+import logging
+
+
+class FormatException(Exception):
+	"""Format exception"""
+
+
+def create_json_logging(message, file_name='app.log.json'):
+		"""Create logger in JSON-format"""
+		logger = logging.getLogger('JSON')
+		logger.setLevel(logging.DEBUG)
+		fh = logging.FileHandler(file_name)
+		fh.setLevel(logging.DEBUG)
+		log_format = '{"timestamp": "%(asctime)s", %(message)s}'
+		formatter = logging.Formatter(log_format)
+		fh.setFormatter(formatter)
+		logger.addHandler(fh)
+		logger.info(message)
+
+
+def create_yaml_logging(message, file_name='app.log.yaml'):
+		"""Create logger in JSON-format"""
+		logger = logging.getLogger('YAML')
+		logger.setLevel(logging.DEBUG)
+		fh = logging.FileHandler(file_name)
+		fh.setLevel(logging.DEBUG)
+		log_format = 'timestamp: %(asctime)s, \n%(message)s'
+		formatter = logging.Formatter(log_format)
+		fh.setFormatter(formatter)
+		logger.addHandler(fh)
+		logger.info(message)
+
+
+def log_calls(format='JSON'):
+		def log_calls_decorator(func):
+				def wrapper(*args, **kwargs):
+						if format.upper() == 'JSON':
+								result = func(*args, **kwargs)
+								message = f'"callable": "{func.__name__}", "args": "{args}", ' \
+								          f'"kwargs": "{kwargs}", "result": "{result}"'
+								create_json_logging(message)
+						elif format.upper() == 'YAML':
+								result = func(*args, **kwargs)
+								message = f'callable: {func.__name__}, \nargs: {args},\n' \
+								          f'kwargs: {kwargs},\nresult: {result}'
+								create_yaml_logging(message)
+						else:
+								raise FormatException('The format is not supported.')
+						return result
+				return wrapper
+		return log_calls_decorator
+
+@log_calls()
+def count1(a, b, **kwargs):
+	sum((a, b)+tuple(kwargs.values()))
+
+@log_calls('yaml')
+def count2(a, b):
+	return a + b
+
+
+if __name__ == '__main__':
+	count1(1, 3, ad=5, bd=7, dd=9)
+	count2(5, 7)
